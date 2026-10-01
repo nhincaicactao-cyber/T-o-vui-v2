@@ -1,0 +1,544 @@
+-- Dịch vụ Roblox
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- Dọn dẹp GUI cũ nếu re-run script
+if CoreGui:FindFirstChild("TruongThaiMenu") then
+    CoreGui.TruongThaiMenu:Destroy()
+end
+
+-- Biến lưu trạng thái & Cấu hình
+local Toggles = {
+    Speed = false,
+    SilentAim = false,
+    Fly = false,
+    ShowHP = false,
+    FastAttack = false,
+    Aura = false
+}
+
+local Settings = {
+    WalkSpeed = 2,
+    FlySpeed = 50,
+    FlyDirectionY = 0,
+    AuraColorMode = "Purple" -- Chế độ: "Purple", "Red", "White", "Green", "Blue", "Pink"
+}
+
+-- Bảng lưu giá trị ColorSequence / Color3 tương ứng với từng chế độ màu
+local ColorTable = {
+    Purple = {
+        Primary = Color3.fromRGB(150, 50, 255),
+        Seq = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 80, 255)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(120, 30, 200)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 0, 100))
+        })
+    },
+    Red = {
+        Primary = Color3.fromRGB(255, 40, 40),
+        Seq = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(200, 20, 20)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 0, 0))
+        })
+    },
+    White = {
+        Primary = Color3.fromRGB(255, 255, 255),
+        Seq = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(180, 180, 180)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 80, 80))
+        })
+    },
+    Green = {
+        Primary = Color3.fromRGB(50, 255, 100),
+        Seq = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 255, 120)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(30, 180, 60)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 80, 20))
+        })
+    },
+    Blue = {
+        Primary = Color3.fromRGB(50, 150, 255),
+        Seq = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 200, 255)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(20, 100, 220)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 40, 120))
+        })
+    },
+    Pink = {
+        Primary = Color3.fromRGB(255, 100, 200),
+        Seq = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 130, 220)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(200, 40, 150)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(90, 10, 60))
+        })
+    }
+}
+
+----------------------------------------------------------------
+-- 1. TẠO GUI CHÍNH (TRƯƠNG THÁI)
+----------------------------------------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TruongThaiMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+-- Nút Bật/Tắt Menu
+local MenuBtn = Instance.new("TextButton")
+MenuBtn.Size = UDim2.new(0, 50, 0, 50)
+MenuBtn.Position = UDim2.new(0, 10, 0.35, 0)
+MenuBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MenuBtn.TextColor3 = Color3.fromRGB(0, 255, 150)
+MenuBtn.Text = "TRƯƠNG\nTHÁI"
+MenuBtn.Font = Enum.Font.SourceSansBold
+MenuBtn.TextSize = 11
+MenuBtn.Draggable = true
+MenuBtn.Active = true
+MenuBtn.Parent = ScreenGui
+
+local MenuBtnStroke = Instance.new("UIStroke")
+MenuBtnStroke.Thickness = 2
+MenuBtnStroke.Parent = MenuBtn
+
+-- Bảng Menu Chính
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 220, 0, 320)
+MainFrame.Position = UDim2.new(0.5, -110, 0.25, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = false
+MainFrame.Parent = ScreenGui
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Thickness = 3
+MainStroke.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Title.Text = "TRƯƠNG THÁI HUB"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 13
+Title.Parent = MainFrame
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -10, 1, -35)
+Scroll.Position = UDim2.new(0, 5, 0, 32)
+Scroll.BackgroundTransparency = 1
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 360)
+Scroll.ScrollBarThickness = 3
+Scroll.Parent = MainFrame
+
+local UIList = Instance.new("UIListLayout")
+UIList.Parent = Scroll
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 5)
+
+MenuBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+local function CreateToggle(name, callback)
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(1, -5, 0, 32)
+    Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Btn.Text = name .. ": OFF"
+    Btn.TextColor3 = Color3.fromRGB(255, 80, 80)
+    Btn.Font = Enum.Font.SourceSans
+    Btn.TextSize = 13
+    Btn.Parent = Scroll
+
+    local state = false
+    Btn.MouseButton1Click:Connect(function()
+        state = not state
+        Btn.Text = name .. (state and ": ON" or ": OFF")
+        Btn.TextColor3 = state and Color3.fromRGB(80, 255, 80) or Color3.fromRGB(255, 80, 80)
+        callback(state)
+    end)
+    return Btn
+end
+
+----------------------------------------------------------------
+-- 2. GUI FLY (TRƯƠNG THÁI FLY)
+----------------------------------------------------------------
+local FlyFrame = Instance.new("Frame")
+FlyFrame.Size = UDim2.new(0, 150, 0, 130)
+FlyFrame.Position = UDim2.new(0.8, -150, 0.35, 0)
+FlyFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+FlyFrame.BorderSizePixel = 0
+FlyFrame.Active = true
+FlyFrame.Draggable = true
+FlyFrame.Visible = false
+FlyFrame.Parent = ScreenGui
+
+local FlyStroke = Instance.new("UIStroke")
+FlyStroke.Thickness = 2.5
+FlyStroke.Parent = FlyFrame
+
+local FlyTitle = Instance.new("TextLabel")
+FlyTitle.Size = UDim2.new(1, 0, 0, 20)
+FlyTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+FlyTitle.Text = "Trương Thái fly"
+FlyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyTitle.Font = Enum.Font.SourceSansBold
+FlyTitle.TextSize = 12
+FlyTitle.Parent = FlyFrame
+
+local FlySpeedInput = Instance.new("TextBox")
+FlySpeedInput.Size = UDim2.new(0.9, 0, 0, 22)
+FlySpeedInput.Position = UDim2.new(0.05, 0, 0.2, 0)
+FlySpeedInput.PlaceholderText = "Tốc độ Fly"
+FlySpeedInput.Text = "50"
+FlySpeedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+FlySpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlySpeedInput.Font = Enum.Font.SourceSans
+FlySpeedInput.TextSize = 11
+FlySpeedInput.Parent = FlyFrame
+FlySpeedInput.FocusLost:Connect(function()
+    local val = tonumber(FlySpeedInput.Text)
+    if val then Settings.FlySpeed = val end
+end)
+
+local UpBtn = Instance.new("TextButton")
+UpBtn.Size = UDim2.new(0.42, 0, 0, 25)
+UpBtn.Position = UDim2.new(0.05, 0, 0.42, 0)
+UpBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 50)
+UpBtn.Text = "LÊN (▲)"
+UpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+UpBtn.Font = Enum.Font.SourceSansBold
+UpBtn.TextSize = 10
+UpBtn.Parent = FlyFrame
+
+local DownBtn = Instance.new("TextButton")
+DownBtn.Size = UDim2.new(0.42, 0, 0, 25)
+DownBtn.Position = UDim2.new(0.53, 0, 0.42, 0)
+DownBtn.BackgroundColor3 = Color3.fromRGB(120, 80, 50)
+DownBtn.Text = "XUỐNG (▼)"
+DownBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+DownBtn.Font = Enum.Font.SourceSansBold
+DownBtn.TextSize = 10
+DownBtn.Parent = FlyFrame
+
+local FlyCloseBtn = Instance.new("TextButton")
+FlyCloseBtn.Size = UDim2.new(0.9, 0, 0, 22)
+FlyCloseBtn.Position = UDim2.new(0.05, 0, 0.78, 0)
+FlyCloseBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+FlyCloseBtn.Text = "Tắt Trương Thái Fly"
+FlyCloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+FlyCloseBtn.Font = Enum.Font.SourceSansBold
+FlyCloseBtn.TextSize = 10
+FlyCloseBtn.Parent = FlyFrame
+
+----------------------------------------------------------------
+-- 3. NÚT CHỨC NĂNG
+----------------------------------------------------------------
+
+CreateToggle("Chạy Nhanh (Bypass)", function(val) Toggles.Speed = val end)
+
+local SpeedInput = Instance.new("TextBox")
+SpeedInput.Size = UDim2.new(1, -5, 0, 28)
+SpeedInput.PlaceholderText = "Hệ số chạy (VD: 2 hoặc 3)"
+SpeedInput.Text = "2"
+SpeedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.Font = Enum.Font.SourceSans
+SpeedInput.TextSize = 11
+SpeedInput.Parent = Scroll
+SpeedInput.FocusLost:Connect(function()
+    local val = tonumber(SpeedInput.Text)
+    if val then Settings.WalkSpeed = val end
+end)
+
+CreateToggle("Silent Aim (Safe)", function(val) Toggles.SilentAim = val end)
+
+CreateToggle("Trương Thái Fly", function(val)
+    Toggles.Fly = val
+    FlyFrame.Visible = val
+    if not val then Settings.FlyDirectionY = 0 end
+end)
+
+-- Chức năng Bật/Tắt Aura & Đổi màu tia vệt chém
+CreateToggle("Tỏa Khói Aura + Tia Chém", function(val)
+    Toggles.Aura = val
+    if not val and LocalPlayer.Character then
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local p1 = hrp:FindFirstChild("TruongThaiDarkSmoke")
+            local p2 = hrp:FindFirstChild("TruongThaiDarkFire")
+            if p1 then p1:Destroy() end
+            if p2 then p2:Destroy() end
+        end
+    end
+end)
+
+-- NÚT CHỈNH MÀU AURA & TIA CHÉM
+local ColorBtn = Instance.new("TextButton")
+ColorBtn.Size = UDim2.new(1, -5, 0, 30)
+ColorBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
+ColorBtn.Text = "Màu Aura: Tím Khói"
+ColorBtn.TextColor3 = Color3.fromRGB(200, 150, 255)
+ColorBtn.Font = Enum.Font.SourceSansBold
+ColorBtn.TextSize = 12
+ColorBtn.Parent = Scroll
+
+ColorBtn.MouseButton1Click:Connect(function()
+    if Settings.AuraColorMode == "Purple" then
+        Settings.AuraColorMode = "Red"
+        ColorBtn.Text = "Màu Aura: Đỏ Rực"
+        ColorBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+        ColorBtn.TextColor3 = Color3.fromRGB(255, 120, 120)
+    elseif Settings.AuraColorMode == "Red" then
+        Settings.AuraColorMode = "White"
+        ColorBtn.Text = "Màu Aura: Trắng Sương"
+        ColorBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+        ColorBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    elseif Settings.AuraColorMode == "White" then
+        Settings.AuraColorMode = "Green"
+        ColorBtn.Text = "Màu Aura: Xanh Lá"
+        ColorBtn.BackgroundColor3 = Color3.fromRGB(20, 80, 30)
+        ColorBtn.TextColor3 = Color3.fromRGB(120, 255, 150)
+    elseif Settings.AuraColorMode == "Green" then
+        Settings.AuraColorMode = "Blue"
+        ColorBtn.Text = "Màu Aura: Xanh Biển"
+        ColorBtn.BackgroundColor3 = Color3.fromRGB(20, 50, 90)
+        ColorBtn.TextColor3 = Color3.fromRGB(120, 200, 255)
+    elseif Settings.AuraColorMode == "Blue" then
+        Settings.AuraColorMode = "Pink"
+        ColorBtn.Text = "Màu Aura: Hồng Neon"
+        ColorBtn.BackgroundColor3 = Color3.fromRGB(90, 20, 60)
+        ColorBtn.TextColor3 = Color3.fromRGB(255, 150, 220)
+    else
+        Settings.AuraColorMode = "Purple"
+        ColorBtn.Text = "Màu Aura: Tím Khói"
+        ColorBtn.BackgroundColor3 = Color3.fromRGB(60, 20, 80)
+        ColorBtn.TextColor3 = Color3.fromRGB(200, 150, 255)
+    end
+end)
+
+CreateToggle("Hiển Thị Máu Realtime", function(val)
+    Toggles.ShowHP = val
+    if not val then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character and p.Character:FindFirstChild("Head") and p.Character.Head:FindFirstChild("SimpleHP") then
+                p.Character.Head.SimpleHP:Destroy()
+            end
+        end
+    end
+end)
+
+CreateToggle("Fast Attack", function(val) Toggles.FastAttack = val end)
+
+----------------------------------------------------------------
+-- 4. HIỆU ỨNG CẦU VỒNG DÀNH CHO MENU
+----------------------------------------------------------------
+task.spawn(function()
+    local hue = 0
+    while true do
+        hue = (hue + 0.005) % 1
+        local rainbowColor = Color3.fromHSV(hue, 1, 1)
+        MainStroke.Color = rainbowColor
+        FlyStroke.Color = rainbowColor
+        MenuBtnStroke.Color = rainbowColor
+        task.wait(0.03)
+    end
+end)
+
+----------------------------------------------------------------
+-- 5. SỰ KIỆN NÚT FLY
+----------------------------------------------------------------
+UpBtn.MouseButton1Down:Connect(function() Settings.FlyDirectionY = 1 end)
+UpBtn.MouseButton1Up:Connect(function() Settings.FlyDirectionY = 0 end)
+
+DownBtn.MouseButton1Down:Connect(function() Settings.FlyDirectionY = -1 end)
+DownBtn.MouseButton1Up:Connect(function() Settings.FlyDirectionY = 0 end)
+
+FlyCloseBtn.MouseButton1Click:Connect(function()
+    Toggles.Fly = false
+    FlyFrame.Visible = false
+    Settings.FlyDirectionY = 0
+end)
+
+----------------------------------------------------------------
+-- 6. LOGIC HOẠT ĐỘNG
+----------------------------------------------------------------
+
+-- 1. Speed Bypass
+RunService.RenderStepped:Connect(function()
+    if Toggles.Speed and LocalPlayer.Character then
+        local chr = LocalPlayer.Character
+        local hum = chr:FindFirstChildOfClass("Humanoid")
+        local hrp = chr:FindFirstChild("HumanoidRootPart")
+
+        if hum and hrp and hum.MoveDirection.Magnitude > 0 then
+            local multiplier = (Settings.WalkSpeed > 1 and (Settings.WalkSpeed - 1)) or 0.5
+            hrp.CFrame = hrp.CFrame + (hum.MoveDirection * (multiplier * 0.15))
+        end
+    end
+end)
+
+-- 2. TẠO & CẬP NHẬT MÀU KHÓI AURA
+RunService.RenderStepped:Connect(function()
+    if Toggles.Aura and LocalPlayer.Character then
+        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local smoke = hrp:FindFirstChild("TruongThaiDarkSmoke")
+            if not smoke then
+                smoke = Instance.new("ParticleEmitter")
+                smoke.Name = "TruongThaiDarkSmoke"
+                smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+                smoke.Size = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 2),
+                    NumberSequenceKeypoint.new(0.5, 4.5),
+                    NumberSequenceKeypoint.new(1, 6)
+                })
+                smoke.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.2),
+                    NumberSequenceKeypoint.new(0.7, 0.5),
+                    NumberSequenceKeypoint.new(1, 1)
+                })
+                smoke.Lifetime = NumberRange.new(1, 1.8)
+                smoke.Rate = 45
+                smoke.Speed = NumberRange.new(3, 6)
+                smoke.EmissionDirection = Enum.NormalId.Top
+                smoke.SpreadAngle = Vector2.new(30, 30)
+                smoke.Rotation = NumberRange.new(0, 360)
+                smoke.RotSpeed = NumberRange.new(-50, 50)
+                smoke.Parent = hrp
+            end
+
+            local fire = hrp:FindFirstChild("TruongThaiDarkFire")
+            if not fire then
+                fire = Instance.new("ParticleEmitter")
+                fire.Name = "TruongThaiDarkFire"
+                fire.Texture = "rbxassetid://243664672"
+                fire.Size = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 3),
+                    NumberSequenceKeypoint.new(1, 7)
+                })
+                fire.Transparency = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 0.1),
+                    NumberSequenceKeypoint.new(1, 1)
+                })
+                fire.Lifetime = NumberRange.new(0.8, 1.4)
+                fire.Rate = 35
+                fire.Speed = NumberRange.new(4, 7)
+                fire.EmissionDirection = Enum.NormalId.Top
+                fire.SpreadAngle = Vector2.new(45, 45)
+                fire.Rotation = NumberRange.new(0, 360)
+                fire.RotSpeed = NumberRange.new(-80, 80)
+                fire.Parent = hrp
+            end
+
+            -- Cập nhật màu Aura theo Mode hiện tại
+            local colorData = ColorTable[Settings.AuraColorMode]
+            if colorData then
+                smoke.Color = colorData.Seq
+                fire.Color = colorData.Seq
+            end
+        end
+    end
+end)
+
+-- 3. LOGIC ĐỔI MÀU TIA VỆT CHÉM (SLASH VFX / TRAIL / BEAM)
+local function OverrideSlashColor(vfx)
+    if not Toggles.Aura then return end
+    local colorData = ColorTable[Settings.AuraColorMode]
+    if not colorData then return end
+
+    if vfx:IsA("Trail") or vfx:IsA("Beam") or vfx:IsA("ParticleEmitter") then
+        vfx.Color = colorData.Seq
+    elseif vfx:IsA("Highlight") or vfx:IsA("SelectionBox") then
+        vfx.FillColor = colorData.Primary
+        vfx.OutlineColor = colorData.Primary
+    end
+end
+
+-- Quét các vệt chém khi xuất hiện mới trong game
+Workspace.ChildAdded:Connect(function(child)
+    if Toggles.Aura then
+        task.wait() -- Chờ VFX load xong
+        for _, desc in pairs(child:GetDescendants()) do
+            OverrideSlashColor(desc)
+        end
+        OverrideSlashColor(child)
+    end
+end)
+
+-- Quét liên tục các Trail/Beam trên nhân vật và vũ khí cầm trên tay
+RunService.RenderStepped:Connect(function()
+    if Toggles.Aura and LocalPlayer.Character then
+        for _, item in pairs(LocalPlayer.Character:GetDescendants()) do
+            if item:IsA("Trail") or item:IsA("Beam") then
+                local colorData = ColorTable[Settings.AuraColorMode]
+                if colorData then
+                    item.Color = colorData.Seq
+                end
+            end
+        end
+    end
+end)
+
+-- 4. Silent Aim Safe
+local function GetClosestPlayer()
+    local closest, shortestDistance = nil, math.huge
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local pos, onScreen = Camera:WorldToViewportPoint(v.Character.Head.Position)
+            if onScreen then
+                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
+                if distance < shortestDistance then
+                    closest = v
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+    return closest
+end
+
+RunService.RenderStepped:Connect(function()
+    if Toggles.SilentAim then
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
+        end
+    end
+end)
+
+-- 5. Fly Logic (Trương Thái Fly)
+task.spawn(function()
+    while true do
+        RunService.RenderStepped:Wait()
+        if Toggles.Fly and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = LocalPlayer.Character.HumanoidRootPart
+            local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            local moveDir = hum.MoveDirection
+
+            local verticalSpeed = Settings.FlyDirectionY * Settings.FlySpeed
+            hrp.Velocity = (moveDir * Settings.FlySpeed) + Vector3.new(0, verticalSpeed + 1.5, 0)
+        end
+    end
+end)
+
+-- 6. ESP Máu Realtime
+RunService.RenderStepped:Connect(function()
+    if not Toggles.ShowHP then return end
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            local head = p.Character.Head
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+
+            if hum and hum.Health > 0 then
+                local bgu = head:FindFirstChild("SimpleHP") or Instance.new("BillboardGui")
+                bgu.Name = "SimpleHP"
+                bgu.AlwaysOnTop = true
+             
